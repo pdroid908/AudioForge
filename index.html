@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MP3 Editor Online</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #07111f;
+        color: #f3f6ff;
+      }
+      .app {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 20px;
+      }
+      .dropzone {
+        border: 2px dashed #6dd3ff;
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+        background: rgba(109, 211, 255, 0.08);
+        cursor: pointer;
+      }
+      .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      label {
+        font-size: 0.95rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+      input[type="range"] {
+        flex: 1;
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      button {
+        border: none;
+        padding: 10px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .primary {
+        background: #2dbdff;
+        color: #05263a;
+      }
+      .secondary {
+        background: #4e5c76;
+        color: #f8fbff;
+      }
+      .status {
+        padding: 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        margin-top: 10px;
+      }
+      .preview-box {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .preview-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+      audio {
+        width: 100%;
+        margin-top: 12px;
+      }
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="card">
+        <h1>MP3 Editor Online</h1>
+        <div class="grid">
+          <div>
+            <div id="dropzone" class="dropzone">
+              <p><strong>Seret file MP3 ke sini</strong></p>
+              <p>atau klik untuk memilih file</p>
+              <input
+                id="fileInput"
+                type="file"
+                accept="audio/mpeg,.mp3"
+                hidden
+              />
+            </div>
+            <audio id="audioPlayer" controls></audio>
+            <div class="preview-box">
+              <div class="preview-actions">
+                <button class="primary" id="previewBtn">Play Preview</button>
+                <button class="secondary" id="stopPreviewBtn">Stop</button>
+              </div>
+              <div class="status" id="previewStatus">
+                Preview siap — tekan tombol Play Preview untuk mendengar efek
+              </div>
+            </div>
+            <div class="status" id="status">Belum ada file</div>
+          </div>
+          <div class="controls">
+            <label
+              >Pitch <span id="pitchValue">0</span
+              ><input id="pitch" type="range" min="-12" max="12" value="0"
+            /></label>
+            <label
+              >Speed <span id="speedValue">1.00x</span
+              ><input
+                id="speed"
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value="1"
+            /></label>
+            <label
+              >Volume <span id="volumeValue">100%</span
+              ><input
+                id="volume"
+                type="range"
+                min="0"
+                max="200"
+                step="1"
+                value="100"
+            /></label>
+            <label
+              >Bass <span id="bassValue">0</span
+              ><input
+                id="bass"
+                type="range"
+                min="-10"
+                max="10"
+                step="1"
+                value="0"
+            /></label>
+            <label
+              >Treble <span id="trebleValue">0</span
+              ><input
+                id="treble"
+                type="range"
+                min="-10"
+                max="10"
+                step="1"
+                value="0"
+            /></label>
+            <label><input id="echo" type="checkbox" /> Echo</label>
+            <label><input id="reverb" type="checkbox" /> Reverb</label>
+            <label><input id="fadeIn" type="checkbox" /> Fade In</label>
+            <label><input id="fadeOut" type="checkbox" /> Fade Out</label>
+            <label><input id="normalize" type="checkbox" /> Normalize</label>
+            <div class="actions">
+              <button class="secondary" id="resetBtn">Reset</button>
+              <button class="primary" id="exportBtn">Export</button>
+            </div>
+            <div id="progress" class="status">Status: siap</div>
+            <a id="downloadLink" style="display: none" download
+              >Download hasil</a
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const dropzone = document.getElementById("dropzone");
+      const fileInput = document.getElementById("fileInput");
+      const audioPlayer = document.getElementById("audioPlayer");
+      const status = document.getElementById("status");
+      const progress = document.getElementById("progress");
+      const previewStatus = document.getElementById("previewStatus");
+      const downloadLink = document.getElementById("downloadLink");
+      const exportBtn = document.getElementById("exportBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const previewBtn = document.getElementById("previewBtn");
+      const stopPreviewBtn = document.getElementById("stopPreviewBtn");
+      const sliders = {
+        pitch: document.getElementById("pitch"),
+        speed: document.getElementById("speed"),
+        volume: document.getElementById("volume"),
+        bass: document.getElementById("bass"),
+        treble: document.getElementById("treble"),
+      };
+      const labels = {
+        pitch: document.getElementById("pitchValue"),
+        speed: document.getElementById("speedValue"),
+        volume: document.getElementById("volumeValue"),
+        bass: document.getElementById("bassValue"),
+        treble: document.getElementById("trebleValue"),
+      };
+      let uploadedPath = "";
+      let lastExportName = "";
+      let currentFile = null;
+      let audioBuffer = null;
+      let previewContext = null;
+      let previewSource = null;
+      let previewActive = false;
+
+      function updateLabels() {
+        labels.pitch.textContent = sliders.pitch.value;
+        labels.speed.textContent = `${Number(sliders.speed.value).toFixed(2)}x`;
+        labels.volume.textContent = `${sliders.volume.value}%`;
+        labels.bass.textContent = sliders.bass.value;
+        labels.treble.textContent = sliders.treble.value;
+      }
+
+      function resetControls() {
+        sliders.pitch.value = 0;
+        sliders.speed.value = 1;
+        sliders.volume.value = 100;
+        sliders.bass.value = 0;
+        sliders.treble.value = 0;
+        document.getElementById("echo").checked = false;
+        document.getElementById("reverb").checked = false;
+        document.getElementById("fadeIn").checked = false;
+        document.getElementById("fadeOut").checked = false;
+        document.getElementById("normalize").checked = false;
+        updateLabels();
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function getCurrentSettings() {
+        return {
+          pitch: Number(sliders.pitch.value),
+          speed: Number(sliders.speed.value),
+          volume: Number(sliders.volume.value),
+          bass: Number(sliders.bass.value),
+          treble: Number(sliders.treble.value),
+          echo: document.getElementById("echo").checked,
+          reverb: document.getElementById("reverb").checked,
+          fadeIn: document.getElementById("fadeIn").checked,
+          fadeOut: document.getElementById("fadeOut").checked,
+          normalize: document.getElementById("normalize").checked,
+        };
+      }
+
+      async function ensureAudioContext() {
+        if (!previewContext) {
+          const AudioContextCtor =
+            window.AudioContext || window.webkitAudioContext;
+          previewContext = new AudioContextCtor();
+        }
+        if (previewContext.state === "suspended") {
+          await previewContext.resume();
+        }
+        return previewContext;
+      }
+
+      function stopPreview() {
+        if (previewSource) {
+          try {
+            previewSource.stop(0);
+          } catch (err) {
+            // ignore
+          }
+          previewSource.disconnect();
+        }
+        previewSource = null;
+        previewActive = false;
+        previewStatus.textContent = "Preview dihentikan";
+      }
+
+      function getPeakLevel(buffer) {
+        let peak = 0;
+        for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+          const data = buffer.getChannelData(channel);
+          for (let i = 0; i < data.length; i += 1) {
+            peak = Math.max(peak, Math.abs(data[i]));
+          }
+        }
+        return peak;
+      }
+
+      async function createPreviewFromFile(file) {
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        audioPlayer.src = url;
+        audioPlayer.load();
+        status.textContent = `File siap: ${file.name}`;
+        currentFile = file;
+        const context = await ensureAudioContext();
+        const arrayBuffer = await file.arrayBuffer();
+        audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0));
+        previewStatus.textContent = "Preview buffer siap — tekan Play Preview";
+      }
+
+      async function playPreview() {
+        if (!audioBuffer) {
+          previewStatus.textContent = "Upload file terlebih dahulu";
+          return;
+        }
+        const context = await ensureAudioContext();
+        const settings = getCurrentSettings();
+        if (previewSource) {
+          try {
+            previewSource.stop(0);
+          } catch (err) {
+            // ignore
+          }
+          previewSource.disconnect();
+        }
+
+        const source = context.createBufferSource();
+        source.buffer = audioBuffer;
+        source.playbackRate.value =
+          settings.speed * Math.pow(2, settings.pitch / 12);
+
+        const masterGain = context.createGain();
+        const dryGain = context.createGain();
+        const wetGain = context.createGain();
+        const wetGain2 = context.createGain();
+        const lowShelf = context.createBiquadFilter();
+        const highShelf = context.createBiquadFilter();
+
+        lowShelf.type = "lowshelf";
+        lowShelf.frequency.value = 100;
+        lowShelf.gain.value = settings.bass;
+        highShelf.type = "highshelf";
+        highShelf.frequency.value = 10000;
+        highShelf.gain.value = settings.treble;
+
+        const peak = getPeakLevel(audioBuffer);
+        const normalizeFactor =
+          settings.normalize && peak > 0.0001 ? 1 / peak : 1;
+        const volumeScale = clamp(settings.volume / 100, 0, 2);
+        const gainValue = normalizeFactor * volumeScale;
+
+        dryGain.gain.value = 1;
+        wetGain.gain.value = settings.echo ? 0.25 : 0;
+        wetGain2.gain.value = settings.reverb ? 0.15 : 0;
+        masterGain.gain.value = gainValue;
+
+        source.connect(lowShelf);
+        lowShelf.connect(highShelf);
+        highShelf.connect(dryGain);
+        dryGain.connect(masterGain);
+        masterGain.connect(context.destination);
+
+        if (settings.echo) {
+          const delay = context.createDelay();
+          const feedback = context.createGain();
+          delay.delayTime.value = 0.35;
+          feedback.gain.value = 0.25;
+          source.connect(delay);
+          delay.connect(feedback);
+          feedback.connect(delay);
+          delay.connect(wetGain);
+          wetGain.connect(masterGain);
+        }
+
+        if (settings.reverb) {
+          const reverbDelay = context.createDelay();
+          const reverbFeedback = context.createGain();
+          reverbDelay.delayTime.value = 0.55;
+          reverbFeedback.gain.value = 0.12;
+          source.connect(reverbDelay);
+          reverbDelay.connect(reverbFeedback);
+          reverbFeedback.connect(reverbDelay);
+          reverbDelay.connect(wetGain2);
+          wetGain2.connect(masterGain);
+        }
+
+        if (settings.fadeIn) {
+          masterGain.gain.setValueAtTime(0, context.currentTime);
+          masterGain.gain.linearRampToValueAtTime(
+            gainValue,
+            context.currentTime + 1,
+          );
+        } else {
+          masterGain.gain.setValueAtTime(gainValue, context.currentTime);
+        }
+
+        if (settings.fadeOut) {
+          masterGain.gain.setValueAtTime(
+            gainValue,
+            context.currentTime + audioBuffer.duration - 1,
+          );
+          masterGain.gain.linearRampToValueAtTime(
+            0,
+            context.currentTime + audioBuffer.duration,
+          );
+        }
+
+        source.start(0);
+        previewSource = source;
+        previewActive = true;
+        previewStatus.textContent = `Preview aktif — pitch ${settings.pitch}, speed ${settings.speed.toFixed(2)}x`;
+      }
+
+      dropzone.addEventListener("click", () => fileInput.click());
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = "#ffffff";
+      });
+      dropzone.addEventListener("dragleave", () => {
+        dropzone.style.borderColor = "#6dd3ff";
+      });
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) handleUpload(file);
+      });
+      fileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) handleUpload(file);
+      });
+
+      async function handleUpload(file) {
+        const formData = new FormData();
+        formData.append("audio", file);
+        progress.textContent = "Status: mengunggah...";
+        const response = await fetch("/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+        if (response.ok) {
+          uploadedPath = data.storedName;
+          await createPreviewFromFile(file);
+          progress.textContent = "Status: file siap di preview";
+        } else {
+          progress.textContent = `Status: ${data.error || "gagal upload"}`;
+        }
+      }
+
+      exportBtn.addEventListener("click", async () => {
+        if (!uploadedPath) {
+          progress.textContent = "Status: upload file terlebih dahulu";
+          return;
+        }
+        progress.textContent = "Status: mengekspor...";
+        const payload = {
+          inputPath: uploadedPath,
+          pitch: Number(sliders.pitch.value),
+          speed: Number(sliders.speed.value),
+          volume: Number(sliders.volume.value),
+          bass: Number(sliders.bass.value),
+          treble: Number(sliders.treble.value),
+          echo: document.getElementById("echo").checked,
+          reverb: document.getElementById("reverb").checked,
+          fadeIn: document.getElementById("fadeIn").checked,
+          fadeOut: document.getElementById("fadeOut").checked,
+          normalize: document.getElementById("normalize").checked,
+        };
+        const response = await fetch("/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          progress.textContent = "Status: export selesai";
+          lastExportName = data.downloadUrl.replace("/download/", "");
+          downloadLink.href = data.downloadUrl;
+          downloadLink.style.display = "inline-block";
+          downloadLink.textContent = "Download hasil";
+        } else {
+          progress.textContent = `Status: ${data.error || "export gagal"}`;
+        }
+      });
+
+      resetBtn.addEventListener("click", () => {
+        resetControls();
+        stopPreview();
+        progress.textContent = "Status: reset";
+      });
+
+      previewBtn.addEventListener("click", () => playPreview());
+      stopPreviewBtn.addEventListener("click", stopPreview);
+
+      function cleanupTempFiles() {
+        if (!uploadedPath && !lastExportName) return;
+        const payload = {
+          uploadPath: uploadedPath,
+          exportName: lastExportName,
+        };
+        const blob = new Blob([JSON.stringify(payload)], {
+          type: "application/json",
+        });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon("/cleanup", blob);
+        }
+      }
+      window.addEventListener("beforeunload", cleanupTempFiles);
+      window.addEventListener("pagehide", cleanupTempFiles);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          cleanupTempFiles();
+        }
+      });
+
+      Object.values(sliders).forEach((input) => {
+        input.addEventListener("input", () => {
+          updateLabels();
+          if (previewActive) {
+            playPreview();
+          }
+        });
+      });
+      document
+        .querySelectorAll("input[type='checkbox']")
+        .forEach((checkbox) => {
+          checkbox.addEventListener("change", () => {
+            if (previewActive) {
+              playPreview();
+            }
+          });
+        });
+      updateLabels();
+    </script>
+  </body>
+</html>
